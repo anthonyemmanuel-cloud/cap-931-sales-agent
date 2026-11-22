@@ -1,0 +1,30 @@
+# Runs the alert system every morning and emails new matching press releases, news and job posts.
+# No GROQ key is needed here. Add SMTP_HOST, SMTP_USER, SMTP_PASSWORD and ALERT_EMAIL as repository secrets,
+# so no email address or password is ever written in the code.
+name: Daily sales alerts
+
+on:
+  schedule:
+    - cron: "17 11 * * 1-5"      # 6:17 am Eastern on weekdays (11:17 UTC)
+  workflow_dispatch:              # also lets you run it from the Actions tab
+
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Remember which items were already sent
+        uses: actions/cache@v4
+        with:
+          path: output/alerts_seen.json
+          key: alerts-seen-${{ github.run_id }}
+          restore-keys: alerts-seen-
+      - name: Check watched companies
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: "587"
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: uv run sales-agent-alerts
