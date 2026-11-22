@@ -28,11 +28,21 @@ def item_key(item):
 
 
 def find_matches(company, keywords, include_jobs=True):
-    """Search news (and job posts) and keep only results that contain at least one keyword."""
-    query = f'"{company}" (' + " OR ".join(f'"{k}"' for k in keywords) + ")"
-    results = [dict(r, kind="news") for r in search_news(query, max_results=10)]
+    """Search news (and job posts) for each keyword and keep only results that contain at least one keyword.
+    One short search per keyword works better than one long query with OR."""
+    results, seen_urls = [], set()
+    searches = [(f'"{company}" {k}', search_news, "news") for k in keywords]
     if include_jobs:
-        results += [dict(r, kind="job post") for r in search_web(f'"{company}" jobs ' + " ".join(keywords), max_results=6)]
+        searches.append((f'"{company}" jobs {keywords[0]}', search_web, "job post"))
+    for query, search, kind in searches:
+        try:
+            found = search(query, max_results=8)
+        except Exception:
+            continue
+        for r in found:
+            if r["url"] not in seen_urls:
+                seen_urls.add(r["url"])
+                results.append(dict(r, kind=kind))
     matched = []
     for r in results:
         text = (r["title"] + " " + r.get("text", "")).lower()

@@ -91,24 +91,39 @@ def fetch_page(url):
             "text": clean_text(html), "links": links}
 
 
+def google_news(query, max_results=6):
+    import feedparser
+    feed = feedparser.parse("https://news.google.com/rss/search?q=" + quote_plus(query + " when:1y")
+                            + "&hl=en-US&gl=US&ceid=US:en")
+    results = []
+    for entry in feed.entries[:max_results]:
+        results.append({"title": entry.get("title", ""), "url": entry.get("link", ""),
+                        "text": clean_text(entry.get("summary", "")),
+                        "date": time.strftime("%Y-%m-%d", entry.published_parsed) if entry.get("published_parsed") else "",
+                        "publisher": entry.get("source", {}).get("title", "")})
+    return results
+
+
+def duckduckgo_news(query, max_results=6):
+    from ddgs import DDGS
+    found = DDGS().news(query, max_results=max_results, timelimit="y")
+    return [{"title": r.get("title", ""), "url": r.get("url", ""), "text": r.get("body", ""),
+             "date": (r.get("date") or "")[:10], "publisher": r.get("source", "")} for r in found if r.get("url")]
+
+
 def search_news(query, max_results=6):
-    """Recent news from the last year. Uses DuckDuckGo news, then Google News RSS if that fails."""
+    """Recent news from the last year. Uses DuckDuckGo news, and Google News when DuckDuckGo fails
+    or returns nothing (search sites sometimes give cloud servers empty results)."""
     try:
-        from ddgs import DDGS
-        found = DDGS().news(query, max_results=max_results, timelimit="y")
-        return [{"title": r.get("title", ""), "url": r.get("url", ""), "text": r.get("body", ""),
-                 "date": (r.get("date") or "")[:10], "publisher": r.get("source", "")} for r in found if r.get("url")]
+        results = duckduckgo_news(query, max_results)
+        if results:
+            return results
     except Exception:
-        import feedparser
-        feed = feedparser.parse("https://news.google.com/rss/search?q=" + quote_plus(query + " when:1y")
-                                + "&hl=en-US&gl=US&ceid=US:en")
-        results = []
-        for entry in feed.entries[:max_results]:
-            summary = clean_text(entry.get("summary", ""))
-            results.append({"title": entry.get("title", ""), "url": entry.get("link", ""), "text": summary,
-                            "date": time.strftime("%Y-%m-%d", entry.published_parsed) if entry.get("published_parsed") else "",
-                            "publisher": entry.get("source", {}).get("title", "")})
-        return results
+        pass
+    try:
+        return google_news(query, max_results)
+    except Exception:
+        return []
 
 
 def search_web(query, max_results=6):

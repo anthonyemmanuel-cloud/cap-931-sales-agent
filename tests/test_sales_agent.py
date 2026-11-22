@@ -215,6 +215,13 @@ def test_confused_fact_checker_never_deletes_claims(offline, monkeypatch):
     assert verdicts == [True, True, True]                     # 1 verdict for 3 claims is not trusted
 
 
+def test_news_falls_back_to_google_when_duckduckgo_is_empty(monkeypatch):
+    monkeypatch.setattr(research, "duckduckgo_news", lambda q, n=6: [])          # no internet needed
+    monkeypatch.setattr(research, "google_news", lambda q, n=6: [{"title": "From Google", "url": "u", "text": "",
+                                                                 "date": "", "publisher": ""}])
+    assert research.search_news("HCA cloud")[0]["title"] == "From Google"
+
+
 def test_best_passages_picks_keyword_text():
     text = "apple " * 600 + "cloud security strategy " * 20 + "banana " * 600
     passages = research.best_passages(text, ["cloud", "security"], count=1)
